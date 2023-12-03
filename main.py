@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import copy
 import random
+import numpy as np
 from collections import namedtuple
 import gymnasium as gym
 
@@ -48,10 +49,27 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
+
+
+### updates ###
+
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
+num_episodes = 1000  # Set the number of episodes you want to train for
+max_steps_per_episode = 200  # Set the maximum number of steps allowed per episode
+
+def add_exploration_noise(action, noise_std=0.2):
+    noise = np.random.normal(0, noise_std, size=action.shape)
+    return np.clip(action + noise, -1.0, 1.0)  # Assuming the action space is between -1 and 1
+
+env = gym.make('Humanoid-v4')
+
+
 # Hyperparameters
-input_size = 4
+input_size = env.observation_space.shape[0]
+output_size = env.action_space.shape[0]
+
 hidden_size = 128
-output_size = 2
+
 tau = 0.005  # for soft update of target parameters
 gamma = 0.99  # discount factor
 buffer_size = 1000000
@@ -86,18 +104,6 @@ def env_step(state, action):
     return next_state, reward, done
 
 
-### updates ###
-
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
-num_episodes = 1000  # Set the number of episodes you want to train for
-max_steps_per_episode = 200  # Set the maximum number of steps allowed per episode
-
-def add_exploration_noise(action, noise_std=0.2):
-    noise = np.random.normal(0, noise_std, size=action.shape)
-    return np.clip(action + noise, -1.0, 1.0)  # Assuming the action space is between -1 and 1
-
-env = gym.make('Humanoid-v5')
-
 # Training loop would go here, including:
 # - Interacting with the environment
 # - Storing transitions in the replay buffer
@@ -106,17 +112,27 @@ env = gym.make('Humanoid-v5')
 
 # Training loop
 for episode in range(num_episodes):
-    state = env.reset()
+    state_tuple = env.reset()
+    # Extract the numpy array from the tuple, which is the first element
+    state = state_tuple[0]
     episode_reward = 0
 
     for t in range(max_steps_per_episode):
+        # Convert the state to a tensor
+        state_tensor = torch.from_numpy(state).float().unsqueeze(0)
+
         # Select action according to policy and add exploration noise
-        state_tensor = torch.FloatTensor(state).unsqueeze(0)
-        action = policy_net(state_tensor).detach().numpy()[0]
+        action_tensor = policy_net(state_tensor)
+        action = action_tensor.detach().cpu().numpy().squeeze()  # Remove extra dimension
         action = add_exploration_noise(action)
 
         # Execute action in the environment
-        next_state, reward, done, _ = env.step(action)
+        step_result = env.step(action)  # Capture all returned values
+        next_state = step_result[0]  # Extract next_state
+        reward = step_result[1]  # Extract reward
+        done = step_result[2]  # Extract done flag
+        # If there's additional information, you can extract it here as needed
+
         episode_reward += reward
 
         # Store transition in the replay buffer
