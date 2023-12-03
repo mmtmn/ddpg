@@ -51,7 +51,7 @@ class ReplayBuffer:
 
 
 
-### updates ###
+# Set up
 
 Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
 num_episodes = 1000  # Set the number of episodes you want to train for
@@ -61,8 +61,7 @@ def add_exploration_noise(action, noise_std=0.2):
     noise = np.random.normal(0, noise_std, size=action.shape)
     return np.clip(action + noise, -1.0, 1.0)  # Assuming the action space is between -1 and 1
 
-env = gym.make('Humanoid-v4')
-
+env = gym.make('Humanoid-v4', render_mode='human')
 
 # Hyperparameters
 input_size = env.observation_space.shape[0]
@@ -104,7 +103,7 @@ def env_step(state, action):
     return next_state, reward, done
 
 
-# Training loop would go here, including:
+# Training loop would goes here, including:
 # - Interacting with the environment
 # - Storing transitions in the replay buffer
 # - Sampling from the buffer to update the Q-network and policy network
